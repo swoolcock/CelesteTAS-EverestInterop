@@ -43,8 +43,8 @@ public class StudioCommunicationBase {
                 fs.SetLength(BufferSize);
             }
 
-            sharedMemory = MemoryMappedFile.CreateFromFile(fs, null, fs.Length, MemoryMappedFileAccess.ReadWrite, null, HandleInheritability.None,
-                true);
+            // sharedMemory = MemoryMappedFile.CreateFromFile(fs, null, fs.Length, MemoryMappedFileAccess.ReadWrite, null, HandleInheritability.None, true);
+            sharedMemory = MemoryMappedFile.CreateFromFile(fs, null, fs.Length, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, true);
         } else {
             sharedMemory = MemoryMappedFile.CreateOrOpen(target, BufferSize);
         }
