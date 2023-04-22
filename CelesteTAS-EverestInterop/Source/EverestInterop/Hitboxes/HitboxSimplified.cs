@@ -42,10 +42,12 @@ public static class HitboxSimplified {
         "Celeste.Mod.ClutterHelper.CustomClutter"
     };
 
+    public static Dictionary<Follower, bool> Followers = new();
+
     [Initialize]
     private static void Initialize() {
         foreach (Type type in ModUtils.GetTypes()) {
-            if (type.FullName is { } fullName && UselessTypeNames.Contains(fullName) && !UselessTypes.Contains(type)) {
+            if (type.FullName is { } fullName && UselessTypeNames.Contains(fullName)) {
                 UselessTypes.Add(type);
             }
         }
@@ -57,6 +59,8 @@ public static class HitboxSimplified {
         On.Monocle.Hitbox.Render += ModHitbox;
         On.Monocle.Grid.Render += CombineGridHitbox;
         IL.Monocle.Draw.HollowRect_float_float_float_float_Color += AvoidRedrawCorners;
+        On.Celeste.Follower.Update += FollowerOnUpdate;
+        On.Celeste.Level.End += LevelOnEnd;
     }
 
     [Unload]
@@ -65,6 +69,8 @@ public static class HitboxSimplified {
         On.Monocle.Hitbox.Render -= ModHitbox;
         On.Monocle.Grid.Render -= CombineGridHitbox;
         IL.Monocle.Draw.HollowRect_float_float_float_float_Color -= AvoidRedrawCorners;
+        On.Celeste.Follower.Update -= FollowerOnUpdate;
+        On.Celeste.Level.End -= LevelOnEnd;
     }
 
     private static void ModDebugRender(ILContext il) {
@@ -85,7 +91,7 @@ public static class HitboxSimplified {
                 return !entity.Collidable;
             }
 
-            if (entity.Get<Follower>() is {Leader: { }}) {
+            if (entity.Get<Follower>() is {Leader: not null} follower && Followers.TryGetValue(follower, out bool delayed) && delayed) {
                 return true;
             }
 
@@ -147,15 +153,17 @@ public static class HitboxSimplified {
             int bottom = (int) Math.Min(self.CellsY - 1,
                 Math.Ceiling((camera.Bottom - (double) self.AbsoluteTop) / self.CellHeight));
 
+            bool hackyFix = camera.Left < self.AbsoluteLeft || camera.Top < self.AbsoluteTop;
+
             for (int x = left; x <= right; ++x) {
                 for (int y = top; y <= bottom; ++y) {
-                    DrawCombineHollowRect(self, color, x, y, left, right, top, bottom);
+                    DrawCombineHollowRect(self, color, x, y, left, right, top, bottom, hackyFix);
                 }
             }
         }
     }
 
-    private static void DrawCombineHollowRect(Grid grid, Color color, int x, int y, int left, int right, int top, int bottom) {
+    private static void DrawCombineHollowRect(Grid grid, Color color, int x, int y, int left, int right, int top, int bottom, bool hackyFix = false) {
         float topLeftX = grid.AbsoluteLeft + x * grid.CellWidth;
         float topLeftY = grid.AbsoluteTop + y * grid.CellHeight;
         Vector2 width = Vector2.UnitX * grid.CellWidth;
@@ -172,7 +180,7 @@ public static class HitboxSimplified {
 
         if (data[x, y]) {
             // left
-            if (x != left && !data[x - 1, y]) {
+            if ((x != left || hackyFix) && !data[x - 1, y]) {
                 Draw.Line(topLeft + Vector2.One, bottomLeft + Vector2.UnitX - Vector2.UnitY, color);
                 drawnLeft = true;
             }
@@ -184,7 +192,7 @@ public static class HitboxSimplified {
             }
 
             // top
-            if (y != top && !data[x, y - 1]) {
+            if ((y != top || hackyFix) && !data[x, y - 1]) {
                 Draw.Line(topLeft + Vector2.UnitX, topRight - Vector2.UnitX, color);
                 drawnTop = true;
             }
@@ -270,5 +278,24 @@ public static class HitboxSimplified {
         // Draw.rect.Height = (int) height - 2;
         ilCursor.Index--;
         ilCursor.Emit(OpCodes.Ldc_I4_2).Emit(OpCodes.Sub);
+    }
+
+    private static void FollowerOnUpdate(On.Celeste.Follower.orig_Update orig, Follower self) {
+        orig(self);
+
+        if (self.Leader == null) {
+            Followers.Remove(self);
+        } else {
+            if (Followers.ContainsKey(self)) {
+                Followers[self] = true;
+            } else {
+                Followers[self] = false;
+            }
+        }
+    }
+
+    private static void LevelOnEnd(On.Celeste.Level.orig_End orig, Level self) {
+        orig(self);
+        Followers.Clear();
     }
 }

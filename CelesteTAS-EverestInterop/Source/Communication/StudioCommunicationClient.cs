@@ -41,7 +41,6 @@ public sealed class StudioCommunicationClient : StudioCommunicationBase {
         Destroy();
     }
 
-    [Initialize]
     public static bool Run() {
         if (Instance != null) {
             return false;
@@ -92,6 +91,10 @@ public sealed class StudioCommunicationClient : StudioCommunicationBase {
         StudioCommunicationClient client = new StudioCommunicationClient(target);
         RunThread($"StudioCom Client_{target}");
         return client;
+    }
+
+    protected override void LogImpl(string text) {
+        text.Log(LogLevel.Verbose);
     }
 
     #region Read
@@ -433,7 +436,7 @@ public sealed class StudioCommunicationClient : StudioCommunicationBase {
 
     private void SendModVersion() {
         // TODO: move to everest.yaml
-        const string minStudioVersion = "2.11.0";
+        const string minStudioVersion = "2.14.1";
         byte[] data = BinaryFormatterHelper.ToByteArray(new[] {CelesteTasModule.Instance.Metadata.VersionString, minStudioVersion});
         WriteMessageGuaranteed(new Message(MessageID.VersionInfo, data));
     }

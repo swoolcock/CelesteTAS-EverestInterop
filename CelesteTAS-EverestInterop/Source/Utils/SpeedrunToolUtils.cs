@@ -15,15 +15,18 @@ namespace TAS.Utils;
 
 internal static class SpeedrunToolUtils {
     private static object saveLoadAction;
-    private static Dictionary<Entity, EntityData> savedEntityData = new();
+    private static Dictionary<Entity, EntityData> savedEntityData;
     private static int groupCounter;
     private static bool simulatePauses;
     private static bool pauseOnCurrentFrame;
     private static int skipFrames;
     private static int waitingFrames;
+    private static StunPauseCommand.StunPauseMode? localMode;
+    private static StunPauseCommand.StunPauseMode? globalMode;
     private static HashSet<Keys> pressKeys;
     private static long? tasStartFileTime;
     private static MouseState mouseState;
+    private static Dictionary<Follower, bool> followers;
 
     public static void AddSaveLoadAction() {
         Action<Dictionary<Type, Dictionary<string, object>>, Level> save = (_, _) => {
@@ -34,9 +37,12 @@ internal static class SpeedrunToolUtils {
             pauseOnCurrentFrame = StunPauseCommand.PauseOnCurrentFrame;
             skipFrames = StunPauseCommand.SkipFrames;
             waitingFrames = StunPauseCommand.WaitingFrames;
+            localMode = StunPauseCommand.LocalMode;
+            globalMode = StunPauseCommand.GlobalMode;
             pressKeys = PressCommand.PressKeys.DeepCloneShared();
             tasStartFileTime = MetadataCommands.TasStartFileTime;
             mouseState = MouseCommand.CurrentState;
+            followers = HitboxSimplified.Followers.DeepCloneShared();
         };
         Action<Dictionary<Type, Dictionary<string, object>>, Level> load = (_, _) => {
             EntityDataHelper.CachedEntityData = savedEntityData.DeepCloneShared();
@@ -46,6 +52,8 @@ internal static class SpeedrunToolUtils {
             StunPauseCommand.PauseOnCurrentFrame = pauseOnCurrentFrame;
             StunPauseCommand.SkipFrames = skipFrames;
             StunPauseCommand.WaitingFrames = waitingFrames;
+            StunPauseCommand.LocalMode = localMode;
+            StunPauseCommand.GlobalMode = globalMode;
             PressCommand.PressKeys.Clear();
             foreach (Keys keys in pressKeys) {
                 PressCommand.PressKeys.Add(keys);
@@ -53,9 +61,12 @@ internal static class SpeedrunToolUtils {
 
             MetadataCommands.TasStartFileTime = tasStartFileTime;
             MouseCommand.CurrentState = mouseState;
+            HitboxSimplified.Followers = followers.DeepCloneShared();
         };
         Action clear = () => {
-            savedEntityData.Clear();
+            savedEntityData = null;
+            pressKeys = null;
+            followers = null;
             InfoWatchEntity.SavedRequireWatchEntities.Clear();
         };
 

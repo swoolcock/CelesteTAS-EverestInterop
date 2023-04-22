@@ -75,6 +75,8 @@ public partial class Studio : BaseForm {
                 SaveSettings();
             }
         };
+
+        TopMost = Settings.Instance.AlwaysOnTop;
     }
 
     private void InitLocationSize() {
@@ -558,8 +560,8 @@ public partial class Studio : BaseForm {
                 string absoluteOrRelativePath = Path.Combine(fileDirectory, filePath);
                 if (File.Exists(absoluteOrRelativePath) && absoluteOrRelativePath != CurrentFileName) {
                     filePath = absoluteOrRelativePath;
-                } else {
-                    string[] files = Directory.GetFiles(fileDirectory, $"{filePath}*.tas");
+                } else if (Directory.GetParent(absoluteOrRelativePath) is { } directoryInfo && Directory.Exists(directoryInfo.ToString())) {
+                    string[] files = Directory.GetFiles(directoryInfo.ToString(), $"{Path.GetFileName(filePath)}*.tas");
                     if (files.FirstOrDefault(path => path != CurrentFileName) is { } shortenedFilePath) {
                         filePath = shortenedFilePath;
                     }
@@ -1267,6 +1269,10 @@ public partial class Studio : BaseForm {
                                 index = formattedText.IndexOf(",A", StringComparison.InvariantCultureIgnoreCase) + 2;
                             }
 
+                            if (!oldInput.HasActions(Actions.MoveOnly) && newInput.HasActions(Actions.MoveOnly)) {
+                                index = formattedText.IndexOf(",M", StringComparison.InvariantCultureIgnoreCase) + 2;
+                            }
+
                             if (!oldInput.HasActions(Actions.PressedKey) && newInput.HasActions(Actions.PressedKey)) {
                                 index = formattedText.IndexOf(",P", StringComparison.InvariantCultureIgnoreCase) + 2;
                             }
@@ -1355,6 +1361,11 @@ public partial class Studio : BaseForm {
         Settings.Instance.AutoRemoveMutuallyExclusiveActions = !Settings.Instance.AutoRemoveMutuallyExclusiveActions;
     }
 
+    private void alwaysOnTopToolStripMenuItem_Click(object sender, EventArgs e) {
+        Settings.Instance.AlwaysOnTop = !Settings.Instance.AlwaysOnTop;
+        TopMost = Settings.Instance.AlwaysOnTop;
+    }
+
     private void homeMenuItem_Click(object sender, EventArgs e) {
         Process.Start("https://github.com/EverestAPI/CelesteTAS-EverestInterop");
     }
@@ -1363,6 +1374,7 @@ public partial class Studio : BaseForm {
         settingsToolStripMenuItem.DropDown.Opacity = 1f;
         sendInputsToCelesteMenuItem.Checked = Settings.Instance.SendInputsToCeleste;
         autoRemoveExclusiveActionsToolStripMenuItem.Checked = Settings.Instance.AutoRemoveMutuallyExclusiveActions;
+        alwaysOnTopToolStripMenuItem.Checked = Settings.Instance.AlwaysOnTop;
         showGameInfoToolStripMenuItem.Checked = Settings.Instance.ShowGameInfo;
         enabledAutoBackupToolStripMenuItem.Checked = Settings.Instance.AutoBackupEnabled;
         backupRateToolStripMenuItem.Text = $"Backup Rate (minutes): {Settings.Instance.AutoBackupRate}";
@@ -1818,6 +1830,10 @@ public partial class Studio : BaseForm {
 
     private void velocityDecimalsToolStripMenuItem_Click(object sender, EventArgs e) {
         SetDecimals("Velocity Decimals", sender);
+    }
+
+    private void angleDecimalsToolStripMenuItem_Click(object sender, EventArgs e) {
+        SetDecimals("Angle Decimals", sender);
     }
 
     private void customInfoDecimalsToolStripMenuItem_Click(object sender, EventArgs e) {

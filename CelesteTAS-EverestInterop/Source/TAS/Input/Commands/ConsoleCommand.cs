@@ -18,6 +18,7 @@ public static class ConsoleCommand {
     private static readonly Regex LoadCommandRegex = new(@"^(load|hard|rmx2)(\d*)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static Vector2 resetRemainder;
     private static Vector2 initSpeed;
+    private static List<Action<Entity>> bugFixers;
 
     [Load]
     private static void Load() {
@@ -324,7 +325,13 @@ public static class ConsoleCommand {
     private static void Load(AreaMode mode, int areaId, Vector2 spawnPoint, Vector2 remainder, Vector2 speed) {
         AreaKey areaKey = new(areaId, mode);
         Session session = new(areaKey);
-        session.Level = session.MapData.GetAt(spawnPoint)?.Name;
+
+        if (session.MapData.GetAt(spawnPoint) is not { } levelData) {
+            AbortTas($"Room does not exist at {spawnPoint}");
+            return;
+        }
+
+        session.Level = levelData.Name;
         if (AreaData.GetCheckpoint(areaKey, session.Level) != null) {
             session = new Session(areaKey, session.Level);
         }
@@ -338,11 +345,32 @@ public static class ConsoleCommand {
     }
 
     private static void EnterLevel(LevelLoader levelLoader) {
-        // fix game crash when leaving a map exist TileGlitcher
-        if (Engine.Scene is Level level && ModUtils.IsInstalled("PandorasBox")) {
+        if (bugFixers == null) {
+            bugFixers = new List<Action<Entity>>();
+
+            // fix game crash when leaving a map exist TileGlitcher
+            if (ModUtils.IsInstalled("PandorasBox")) {
+                bugFixers.Add(entity => {
+                    if (entity.GetType().FullName == "Celeste.Mod.PandorasBox.TileGlitcher") {
+                        entity.Active = false;
+                    }
+                });
+            }
+
+            // fix tas desync when restarting tas in DashBoostField
+            if (ModUtils.IsInstalled("StrawberryJam2021")) {
+                bugFixers.Add(entity => {
+                    if (entity.GetType().FullName == "Celeste.Mod.StrawberryJam2021.Entities.DashBoostField") {
+                        entity.Active = false;
+                    }
+                });
+            }
+        }
+
+        if (Engine.Scene is Level level && bugFixers.IsNotEmpty()) {
             foreach (Entity entity in level.Entities) {
-                if (entity.GetType().FullName == "Celeste.Mod.PandorasBox.TileGlitcher") {
-                    entity.Active = false;
+                foreach (Action<Entity> bugFixer in bugFixers) {
+                    bugFixer(entity);
                 }
             }
         }
